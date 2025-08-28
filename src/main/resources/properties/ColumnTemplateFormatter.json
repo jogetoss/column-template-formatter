@@ -1,0 +1,91 @@
+[
+  {
+    "title": "@@org.joget.marketplace.ColumnTemplateFormatter.config@@",
+    "properties": [
+      {
+        "name": "templateButtonsHeader",
+        "label": "Template",
+        "type": "custom",
+        "script_url": "[CONTEXT_PATH]/web/json/app[APP_PATH]/plugin/org.joget.marketplace.ColumnTemplateFormatter/service?action=templates"
+      },
+      {
+        "name": "templateEditor",
+        "type": "codeeditor",
+        "mode": "html"
+      },
+      {
+        "name": "sampleBox",
+        "label": "@@org.joget.marketplace.ColumnTemplateFormatter.sampleBoxLabel@@",
+        "type": "custom",
+        "script_url": "[CONTEXT_PATH]/web/json/app[APP_PATH]/plugin/org.joget.marketplace.ColumnTemplateFormatter/service?action=sampleBox"
+      },
+      {
+        "name": "useConditionalFormatting",
+        "type": "checkbox",
+        "options": [
+          {
+            "value": "true",
+            "label": "Enable Conditional Formatting"
+          }
+        ]
+      },
+      {
+        "name": "useAiTemplateGeneration",
+        "type": "checkbox",
+        "options": [
+          {
+            "value": "true",
+            "label": "Enable Template Generation Using AI"
+          }
+        ]
+      },
+      {
+        "label": "Conditional Formatting",
+        "type": "header",
+        "developer_mode": "advanced"
+      },
+      {
+        "name": "conditionalFormatting",
+        "type": "custom",
+        "script_url": "[CONTEXT_PATH]/web/json/app[APP_PATH]/plugin/org.joget.marketplace.ColumnTemplateFormatter/service?action=conditionalFormatting"
+      },
+      {
+        "name": "valueTemplateMap",
+        "type": "hidden"
+      },
+      {
+        "label": "@@org.joget.marketplace.ColumnTemplateFormatter.ai.config@@",
+        "type": "header",
+        "developer_mode": "advanced",
+        "control_field": "useAiTemplateGeneration",
+        "control_value": "true"
+      },
+      {
+        "name": "model",
+        "label": "@@org.joget.marketplace.ColumnTemplateFormatter.model@@",
+        "type": "textfield",
+        "required": "True",
+        "value": "gpt-3.5-turbo",
+        "control_field": "useAiTemplateGeneration",
+        "control_value": "true"
+      },
+      {
+        "name": "apiKey",
+        "label": "@@org.joget.marketplace.ColumnTemplateFormatter.apiKey@@",
+        "type": "password",
+        "required": "True",
+        "value": "",
+        "control_field": "useAiTemplateGeneration",
+        "control_value": "true"
+      },
+      {
+        "name": "proxyDomain",
+        "label": "@@org.joget.marketplace.ColumnTemplateFormatter.proxyDomain@@",
+        "type": "textfield",
+        "value": "https://api.openai.com",
+        "control_field": "useAiTemplateGeneration",
+        "control_value": "true"
+      }
+    ]
+  }
+]

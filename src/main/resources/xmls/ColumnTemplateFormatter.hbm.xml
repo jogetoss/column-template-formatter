@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+
+    <class entity-name="ColumnTemplateFormatter"
+           name="org.joget.marketplace.model.ColumnTemplateFormatterModel"
+           table="column_template_formatter">
+
+        <id column="id" name="id" type="string" />
+
+        <property column="created_at" name="createdAt" type="timestamp" />
+        <property column="templateName" name="templateName" type="text" />
+        <property column="templateHtml" name="templateHtml" type="text" />
+        <property column="isActive" name="isActive" type="boolean" />
+
+    </class>
+
+</hibernate-mapping>
