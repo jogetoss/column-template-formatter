@@ -12,14 +12,9 @@
             option.onclick = function() {
                 var selected = this.getAttribute('data-template');
                 updateSampleBox(selected);
-                var aceEditorDiv = document.querySelector('.ace_editor');
-                if (aceEditorDiv && window.ace) {
-                    var editor = window.ace.edit(aceEditorDiv);
-                    var pillOption = document.querySelector('.pill-option[data-template="' + selected + '"]');
-                    if (pillOption) {
-                        var templateCode = pillOption.outerHTML;
-                        editor.setValue(templateCode, -1); // -1 moves cursor to start
-                    }
+                var pillOption = document.querySelector('.pill-option[data-template="' + selected + '"]');
+                if (pillOption && window.CTF_setEditorValue) {
+                    window.CTF_setEditorValue(pillOption.outerHTML);
                 }
                 var templateModal = document.getElementById('templateModal');
                 if (templateModal) templateModal.style.display = 'none';
@@ -88,15 +83,11 @@
         window.SampleBoxAttachPillListeners = function() {
             thisObj.attachPillListeners(thisObj.updateSampleBox);
         };
-        var aceEditorDiv = document.querySelector('.ace_editor');
+        var code = (window.CTF_getEditorValue && window.CTF_getEditorValue()) || '';
         var initialSelected = null;
-        if (aceEditorDiv && window.ace) {
-            var editor = window.ace.edit(aceEditorDiv);
-            var code = editor.getValue();
+        if (code) {
             var match = code.match(/data-template=["']([^"']+)["']/);
-            if (match) {
-                initialSelected = match[1];
-            }
+            if (match) initialSelected = match[1];
         }
         function waitForAllPillTemplatesAndUpdate() {
             if (window.allPillTemplates && allPillTemplatesDiv) {

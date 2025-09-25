@@ -52,6 +52,59 @@
             this.loadTemplatesFromDatabase();
         }
     },
+
+    // Minimal cross-editor helpers (ACE / Monaco / CodeMirror / textarea)
+    _getEditorEl: function() {
+        return document.querySelector('.ace_editor') || document.querySelector('.monaco-editor') || document.querySelector('.CodeMirror') || document.querySelector('textarea[name*="templateEditor"], textarea[name*="_templateEditor"]');
+    },
+    getEditorContainer: function() {
+        var el = this._getEditorEl();
+        if (!el) return null;
+        return el.closest('.form-row') || el.closest('.form-group') || el;
+    },
+    setEditorValue: function(html) {
+        var el = document.querySelector('.ace_editor');
+        if (el && window.ace) { try { window.ace.edit(el).setValue(html, -1); return; } catch(e){} }
+        var cm = document.querySelector('.CodeMirror');
+        if (cm && cm.CodeMirror) { try { cm.CodeMirror.setValue(html); return; } catch(e){} }
+        if (window.monaco && window.monaco.editor && typeof window.monaco.editor.getModels === 'function') {
+            var models = window.monaco.editor.getModels();
+            if (models && models[0]) { try { models[0].setValue(html); return; } catch(e){} }
+        }
+        var ta = document.querySelector('textarea[name*="templateEditor"], textarea[name*="_templateEditor"]');
+        if (ta) { ta.value = html; try { ta.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){} }
+    },
+    getEditorValue: function() {
+        var el = document.querySelector('.ace_editor');
+        if (el && window.ace) { try { return window.ace.edit(el).getValue(); } catch(e){} }
+        var cm = document.querySelector('.CodeMirror');
+        if (cm && cm.CodeMirror) { try { return cm.CodeMirror.getValue(); } catch(e){} }
+        if (window.monaco && window.monaco.editor && typeof window.monaco.editor.getModels === 'function') {
+            var models = window.monaco.editor.getModels();
+            if (models && models[0]) { try { return models[0].getValue(); } catch(e){} }
+        }
+        var ta = document.querySelector('textarea[name*="templateEditor"], textarea[name*="_templateEditor"]');
+        return ta ? ta.value : null;
+    },
+    onEditorChange: function(cb) {
+        // ACE
+        var el = document.querySelector('.ace_editor');
+        if (el && window.ace) { try { window.ace.edit(el).on('change', function(){ cb(ColumnTemplateFormatter.getEditorValue()); }); return; } catch(e){} }
+        // CodeMirror
+        var cm = document.querySelector('.CodeMirror');
+        if (cm && cm.CodeMirror) { try { cm.CodeMirror.on('change', function(i){ cb(i.getValue()); }); return; } catch(e){} }
+        // Monaco
+        if (window.monaco && window.monaco.editor && typeof window.monaco.editor.getModels === 'function') {
+            var models = window.monaco.editor.getModels();
+            if (models && models[0] && models[0].onDidChangeContent) { try { models[0].onDidChangeContent(function(){ cb(models[0].getValue()); }); return; } catch(e){} }
+        }
+        // Textarea
+        var ta = document.querySelector('textarea[name*="templateEditor"], textarea[name*="_templateEditor"]');
+        if (ta) {
+            var h = function(){ cb(ta.value); };
+            ta.addEventListener('input', h); ta.addEventListener('change', h);
+        }
+    },
     
     toggleAiSection: function() {
         var aiSection = document.getElementById('aiTemplateSection');
@@ -669,11 +722,8 @@
                             }
                         }
 
-                        const aceEditorDiv = document.querySelector('.ace_editor');
-                        if (aceEditorDiv && window.ace) {
-                            const editor = window.ace.edit(aceEditorDiv);
-                            editor.setValue(savedTemplate.templateHtml, -1);
-                        }
+                        // Populate whichever editor is present (ACE/Monaco/CodeMirror/textarea)
+                        self.setEditorValue(savedTemplate.templateHtml);
                     }
                 } else {
                     // Handle original (DOM-based) templates
@@ -687,12 +737,8 @@
                         );
                     }
 
-                    const aceEditorDiv = document.querySelector('.ace_editor');
-                    if (aceEditorDiv && window.ace) {
-                        const editor = window.ace.edit(aceEditorDiv);
-                        const templateCode = `<span style="${this.getAttribute('style')}">${this.innerHTML}</span>`;
-                        editor.setValue(templateCode, -1);
-                    }
+                    const templateCode = `<span style="${this.getAttribute('style')}">${this.innerHTML}</span>`;
+                    self.setEditorValue(templateCode);
                 }
 
                 // Close the modal
@@ -704,19 +750,11 @@
 
     editTemplate: function() {
         var editBtn = document.getElementById('editTemplateBtn');
-        var aceEditor = document.querySelector('.ace_editor');
-        if (aceEditor) {
-            var parent = aceEditor.closest('.form-row') || aceEditor.closest('.form-group');
-            var target = parent || aceEditor;
-            var isHidden = target.style.display === 'none';
-            if (isHidden) {
-                target.style.display = 'block';
-               if (editBtn) editBtn.innerHTML = 'Hide Template <i class="fas fa-ban"></i>';
-            } else {
-                target.style.display = 'none';
-                if (editBtn) editBtn.innerHTML = 'Edit Template <i class="fas fa-pen"></i>';
-            }
-        }
+        var container = this.getEditorContainer();
+        if (!container) return;
+        var isHidden = container.style.display === 'none' || window.getComputedStyle(container).display === 'none';
+        container.style.display = isHidden ? 'block' : 'none';
+        if (editBtn) editBtn.innerHTML = isHidden ? 'Hide Template <i class="fas fa-ban"></i>' : 'Edit Template <i class="fas fa-pen"></i>';
     },
 
     closeTemplateModal: function() {
@@ -742,35 +780,23 @@
 
 
         
-        // Hide the Ace editor on initial load and add change listener
+        // Hide editor on load, then wire preview sync (works for ACE/DX8 and Monaco/CodeMirror/DX9)
         setTimeout(function() {
-            var aceEditor = document.querySelector('.ace_editor');
-            if (aceEditor) {
-                var parent = aceEditor.closest('.form-row') || aceEditor.closest('.form-group');
-                var target = parent || aceEditor;
-                target.style.display = 'none';
-                
-                // Initialize sample box with existing template if any (after ACE editor is ready)
-                this.initializeSampleBoxWithExistingTemplate();
-                
-                // Add change listener to sync with main sample box
-                if (window.ace) {
-                    var editor = window.ace.edit(aceEditor);
-                    editor.on('change', function() {
-                        var templateCode = editor.getValue();
-                        var sampleBoxPill = document.getElementById('sampleBoxPill');
-                        if (sampleBoxPill) {
-                            var tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = templateCode;
-                            var spanElement = tempDiv.querySelector('span') || tempDiv.querySelector('div');
-                            if (spanElement) {
-                                sampleBoxPill.innerHTML = spanElement.innerHTML;
-                                sampleBoxPill.setAttribute('style', spanElement.getAttribute('style'));
-                            }
-                        }
-                    });
+            var container = this.getEditorContainer();
+            if (container) container.style.display = 'none';
+            this.initializeSampleBoxWithExistingTemplate();
+            this.onEditorChange(function(templateCode){
+                var sampleBoxPill = document.getElementById('sampleBoxPill');
+                if (sampleBoxPill) {
+                    var tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = templateCode || '';
+                    var spanElement = tempDiv.querySelector('span') || tempDiv.querySelector('div');
+                    if (spanElement) {
+                        sampleBoxPill.innerHTML = spanElement.innerHTML;
+                        sampleBoxPill.setAttribute('style', spanElement.getAttribute('style'));
+                    }
                 }
-            }
+            }.bind(this));
         }.bind(this), 100);
 
         if (chooseBtn) {
@@ -808,6 +834,11 @@
             window.saveAiTemplateListenerAdded = true;
         }
         
+        // Expose helpers for other components
+        window.CTF_setEditorValue = this.setEditorValue.bind(this);
+        window.CTF_getEditorValue = this.getEditorValue.bind(this);
+        window.CTF_onEditorChange = this.onEditorChange.bind(this);
+
         // Initialize AI button visibility based on checkbox state
         this.updateAiButtonVisibility();
         
@@ -835,71 +866,60 @@
     },
 
     initializeSampleBoxWithExistingTemplate: function() {
-        var aceEditorDiv = document.querySelector('.ace_editor');
-        var initialSelected = null;
-        var initialTemplateHtml = null;
-
-        if (aceEditorDiv && window.ace) {
-            try {
-                var editor = window.ace.edit(aceEditorDiv);
-                var code = editor.getValue();
-                
-                // Check for data-template attribute
-                var match = code.match(/data-template=["']([^"']+)["']/);
-                if (match) {
-                    initialSelected = match[1];
-                }
-                
-                // Also check if there's already HTML content in the editor
-                if (code.trim() && code.includes('<span') || code.includes('<div')) {
-                    initialTemplateHtml = code;
-                }
-            } catch (e) {
-                // ACE editor might not be ready yet
-                console.log('ACE editor not ready yet:', e);
-            }
-        }
-
+        var code = this.getEditorValue() || '';
         var pill = document.getElementById('sampleBoxPill');
-        if (!pill) {
-            return; // Sample box not ready yet
-        }
+        if (!pill) return;
 
-        if (initialTemplateHtml) {
-            // If there's already HTML content in the editor, use it directly
+        // Try to extract selected key first
+        var match = code.match(/data-template=["']([^"']+)["']/);
+        var initialSelected = match ? match[1] : null;
+
+        // If actual HTML exists, prefer rendering it directly
+        var hasHtml = code && (code.includes('<span') || code.includes('<div'));
+        if (hasHtml) {
             var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = initialTemplateHtml;
+            tempDiv.innerHTML = code;
             var spanElement = tempDiv.querySelector('span') || tempDiv.querySelector('div');
             if (spanElement) {
                 pill.innerHTML = spanElement.innerHTML;
-                pill.setAttribute('style', spanElement.getAttribute('style') + ';display:flex;align-items:center;justify-content:center;');
+                pill.setAttribute('style', (spanElement.getAttribute('style') || '') + ';display:flex;align-items:center;justify-content:center;');
+                return;
             }
-        } else if (initialSelected) {
-            // Check if this is a saved template
+        }
+
+        // Otherwise, fall back to matching by data-template if available
+        if (initialSelected) {
             if (initialSelected.startsWith('saved-')) {
                 var templateId = initialSelected.replace('saved-', '');
-                var savedTemplate = window.savedTemplates ? window.savedTemplates.find(function(t) { return t.id === templateId; }) : null;
-                
+                var savedTemplate = window.savedTemplates ? window.savedTemplates.find(function(t){ return t.id === templateId; }) : null;
                 if (savedTemplate) {
-                    // Update the sample box with saved template
-                    var tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = savedTemplate.templateHtml;
-                    var spanElement = tempDiv.querySelector('span') || tempDiv.querySelector('div');
-                    if (spanElement) {
-                        pill.innerHTML = spanElement.innerHTML;
-                        pill.setAttribute('style', spanElement.getAttribute('style') + ';display:flex;align-items:center;justify-content:center;');
+                    var t = document.createElement('div');
+                    t.innerHTML = savedTemplate.templateHtml;
+                    var el = t.querySelector('span') || t.querySelector('div');
+                    if (el) {
+                        pill.innerHTML = el.innerHTML;
+                        pill.setAttribute('style', (el.getAttribute('style') || '') + ';display:flex;align-items:center;justify-content:center;');
                     }
-                }
-            } else {
-                // Handle original templates - try to find the template in the current DOM
-                var pillOption = document.querySelector('.pill-option[data-template="' + initialSelected + '"]');
-                
-                if (pillOption) {
-                    // Use the actual template content from the DOM element
-                    pill.innerHTML = pillOption.innerHTML;
-                    pill.setAttribute('style', pillOption.getAttribute('style') + ';display:flex;align-items:center;justify-content:center;');
+                    return;
                 }
             }
+            var pillOption = document.querySelector('.pill-option[data-template="' + initialSelected + '"]');
+            if (pillOption) {
+                pill.innerHTML = pillOption.innerHTML;
+                pill.setAttribute('style', (pillOption.getAttribute('style') || '') + ';display:flex;align-items:center;justify-content:center;');
+            }
+        }
+
+        // If nothing rendered yet (editor may not be ready), retry a few times
+        if (!pill.innerHTML || pill.innerHTML.trim() === '') {
+            window.__ctfInitTries = (window.__ctfInitTries || 0) + 1;
+            if (window.__ctfInitTries <= 10) {
+                setTimeout(this.initializeSampleBoxWithExistingTemplate.bind(this), 150);
+            } else {
+                window.__ctfInitTries = 0;
+            }
+        } else {
+            window.__ctfInitTries = 0;
         }
     }
 } 
