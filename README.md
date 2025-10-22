@@ -1,6 +1,6 @@
 # Description
 
-Template Datalist Formatter transforms normal tabular datalist row to use user defined template. Do See https://kb.joget.org/jw/web/userview/jdocs/docs/marketplace/column-template-formatter
+Template Datalist Formatter transforms normal tabular datalist row to use user defined template. Do See [Knowledge Base](https://kb.joget.org/jw/web/userview/jdocs/docs/marketplace/column-template-formatter) 
 
 # Getting Help
 
