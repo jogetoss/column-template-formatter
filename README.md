@@ -1,6 +1,6 @@
 # Description
 
-This repository is meant to serve as a general template for how to set up new repositories in the JogetOSS organization. 
+Template Datalist Formatter transforms normal tabular datalist row to use user defined template. Do See https://kb.joget.org/jw/web/userview/jdocs/docs/marketplace/column-template-formatter
 
 # Getting Help
 
@@ -8,6 +8,10 @@ JogetOSS is a community-led team for open source software related to the [Joget]
 Projects under JogetOSS are community-driven and community-supported.
 To obtain support, ask questions, get answers and help others, please participate in the [Community Q&A](https://answers.joget.org/).
 
+# Pre-requisites
+
+- Requires Joget DX8 and higher.
+  
 # Contributing
 
 This project welcomes contributions and suggestions, please open an issue or create a pull request.
