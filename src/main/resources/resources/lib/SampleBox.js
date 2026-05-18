@@ -14,7 +14,13 @@
                 updateSampleBox(selected);
                 var pillOption = document.querySelector('.pill-option[data-template="' + selected + '"]');
                 if (pillOption && window.CTF_setEditorValue) {
-                    window.CTF_setEditorValue(pillOption.outerHTML);
+                    var templateHtml = pillOption.outerHTML;
+                    if (!pillOption.textContent.trim()) {
+                        var clone = pillOption.cloneNode(true);
+                        clone.textContent = '{{value}}';
+                        templateHtml = clone.outerHTML;
+                    }
+                    window.CTF_setEditorValue(templateHtml);
                 }
                 var templateModal = document.getElementById('templateModal');
                 if (templateModal) templateModal.style.display = 'none';

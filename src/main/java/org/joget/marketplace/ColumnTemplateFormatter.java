@@ -12,6 +12,8 @@ import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.datalist.model.DataList;
 import org.joget.apps.datalist.model.DataListColumn;
 import org.joget.apps.datalist.model.DataListColumnFormatDefault;
+import org.joget.apps.datalist.model.DataListRow;
+import org.joget.apps.datalist.service.DataListService;
 import org.joget.commons.util.LogUtil;
 import org.joget.marketplace.context.AppContext;
 import org.joget.marketplace.dao.ColumnTemplateFormatterDao;
@@ -24,6 +26,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
+import org.jsoup.select.Elements;
 
 public class ColumnTemplateFormatter extends DataListColumnFormatDefault implements PluginWebSupport {
 
@@ -36,7 +39,7 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
 
     @Override
     public String getVersion() {
-        return "8.0.0";
+        return "8.0.1";
     }
 
     @Override
@@ -60,8 +63,8 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
     }
 
     @Override
-    public String format(DataList dataList, DataListColumn dataListColumn, Object o, Object o1) {
-        String columnValue = extractColumnValue(dataListColumn, o);
+    public String format(DataList dataList, DataListColumn dataListColumn, Object row, Object value) {
+        String columnValue = extractColumnValue(dataListColumn, row, value);
 
         // Check if conditional formatting is enabled
         boolean useConditionalFormatting = "true".equals(getPropertyString("useConditionalFormatting"));
@@ -83,13 +86,39 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
     }
 
 
-    private String extractColumnValue(DataListColumn dataListColumn, Object o) {
-        if (o instanceof java.util.Map) {
-            java.util.Map<String, Object> rowData = (java.util.Map<String, Object>) o;
-            String columnName = dataListColumn.getName();
-            Object value = rowData.get(columnName);
-            return value != null ? value.toString() : "";
+    private String extractColumnValue(DataListColumn dataListColumn, Object row, Object value) {
+        if (value != null) {
+            return value.toString();
         }
+
+        String columnName = dataListColumn.getName();
+        if (columnName == null || columnName.isEmpty()) {
+            return "";
+        }
+
+        if (row instanceof DataListRow) {
+            Object rowValue = ((DataListRow) row).get(columnName);
+            if (rowValue != null) {
+                return rowValue.toString();
+            }
+        }
+
+        Object evaluated = DataListService.evaluateColumnValueFromRow(row, columnName);
+        if (evaluated != null) {
+            return evaluated.toString();
+        }
+
+        if (row instanceof java.util.Map) {
+            java.util.Map rowData = (java.util.Map) row;
+            Object mapValue = rowData.get(columnName);
+            if (mapValue == null) {
+                mapValue = rowData.get(columnName.toLowerCase());
+            }
+            if (mapValue != null) {
+                return mapValue.toString();
+            }
+        }
+
         return "";
     }
 
@@ -113,18 +142,78 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
         return getPropertyString("templateEditor");
     }
 
+    private static final String[] VALUE_PLACEHOLDERS = {
+        "{{value}}", "{{columnValue}}", "{{VALUE}}", "%%VALUE%%", "COLUMN_VALUE"
+    };
+
     public static String replaceLastTextContent(String html, String replacement) {
-        if (html == null || replacement == null) return html;
+        if (html == null) {
+            return html;
+        }
+        if (replacement == null) {
+            replacement = "";
+        }
 
         Document doc = Jsoup.parseBodyFragment(html);
         Element body = doc.body();
+        String bodyHtml = body.html();
+
+        for (String placeholder : VALUE_PLACEHOLDERS) {
+            if (bodyHtml.toLowerCase().contains(placeholder.toLowerCase())) {
+                body.html(bodyHtml.replaceAll("(?i)" + java.util.regex.Pattern.quote(placeholder),
+                        java.util.regex.Matcher.quoteReplacement(replacement)));
+                return body.html();
+            }
+        }
 
         TextNode lastTextNode = findLastTextNode(body);
         if (lastTextNode != null) {
             lastTextNode.text(replacement);
+            return body.html();
         }
 
-        return body.html(); // Return only what's inside <body>
+        Element target = findInjectionTarget(body);
+        if (target != null) {
+            target.appendText(replacement);
+        } else {
+            body.appendText(replacement);
+        }
+
+        return body.html();
+    }
+
+    private static Element findInjectionTarget(Element body) {
+        Element withDataTemplate = body.select("[data-template]").last();
+        if (withDataTemplate != null) {
+            return withDataTemplate;
+        }
+
+        Elements styledTargets = body.select(".pill-option, .badge");
+        if (!styledTargets.isEmpty()) {
+            return styledTargets.last();
+        }
+
+        Element deepestLeaf = null;
+        int maxDepth = -1;
+        for (Element element : body.getAllElements()) {
+            if (element == body || !element.children().isEmpty()) {
+                continue;
+            }
+            int depth = element.parents().size();
+            if (depth > maxDepth) {
+                maxDepth = depth;
+                deepestLeaf = element;
+            }
+        }
+        if (deepestLeaf != null) {
+            return deepestLeaf;
+        }
+
+        if (!body.children().isEmpty()) {
+            return body.child(body.children().size() - 1);
+        }
+
+        return body;
     }
 
     private static TextNode findLastTextNode(Node node) {
