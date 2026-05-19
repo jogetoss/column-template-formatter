@@ -12,6 +12,8 @@ import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.datalist.model.DataList;
 import org.joget.apps.datalist.model.DataListColumn;
 import org.joget.apps.datalist.model.DataListColumnFormatDefault;
+import org.joget.apps.datalist.model.DataListRow;
+import org.joget.apps.datalist.service.DataListService;
 import org.joget.commons.util.LogUtil;
 import org.joget.marketplace.context.AppContext;
 import org.joget.marketplace.dao.ColumnTemplateFormatterDao;
@@ -36,7 +38,7 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
 
     @Override
     public String getVersion() {
-        return "8.0.0";
+        return "8.0.1";
     }
 
     @Override
@@ -60,8 +62,8 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
     }
 
     @Override
-    public String format(DataList dataList, DataListColumn dataListColumn, Object o, Object o1) {
-        String columnValue = extractColumnValue(dataListColumn, o);
+    public String format(DataList dataList, DataListColumn dataListColumn, Object row, Object value) {
+        String columnValue = extractColumnValue(dataListColumn, row, value);
 
         // Check if conditional formatting is enabled
         boolean useConditionalFormatting = "true".equals(getPropertyString("useConditionalFormatting"));
@@ -83,13 +85,39 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
     }
 
 
-    private String extractColumnValue(DataListColumn dataListColumn, Object o) {
-        if (o instanceof java.util.Map) {
-            java.util.Map<String, Object> rowData = (java.util.Map<String, Object>) o;
-            String columnName = dataListColumn.getName();
-            Object value = rowData.get(columnName);
-            return value != null ? value.toString() : "";
+    private String extractColumnValue(DataListColumn dataListColumn, Object row, Object value) {
+        if (value != null) {
+            return value.toString();
         }
+
+        String columnName = dataListColumn.getName();
+        if (columnName == null || columnName.isEmpty()) {
+            return "";
+        }
+
+        if (row instanceof DataListRow) {
+            Object rowValue = ((DataListRow) row).get(columnName);
+            if (rowValue != null) {
+                return rowValue.toString();
+            }
+        }
+
+        Object evaluated = DataListService.evaluateColumnValueFromRow(row, columnName);
+        if (evaluated != null) {
+            return evaluated.toString();
+        }
+
+        if (row instanceof java.util.Map) {
+            java.util.Map rowData = (java.util.Map) row;
+            Object mapValue = rowData.get(columnName);
+            if (mapValue == null) {
+                mapValue = rowData.get(columnName.toLowerCase());
+            }
+            if (mapValue != null) {
+                return mapValue.toString();
+            }
+        }
+
         return "";
     }
 
@@ -114,7 +142,9 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
     }
 
     public static String replaceLastTextContent(String html, String replacement) {
-        if (html == null || replacement == null) return html;
+        if (html == null || replacement == null) {
+            return html;
+        }
 
         Document doc = Jsoup.parseBodyFragment(html);
         Element body = doc.body();
@@ -122,9 +152,16 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
         TextNode lastTextNode = findLastTextNode(body);
         if (lastTextNode != null) {
             lastTextNode.text(replacement);
+        } else {
+            Element target = body.select("span, div").last();
+            if (target != null) {
+                target.appendText(replacement);
+            } else {
+                body.appendText(replacement);
+            }
         }
 
-        return body.html(); // Return only what's inside <body>
+        return body.html();
     }
 
     private static TextNode findLastTextNode(Node node) {

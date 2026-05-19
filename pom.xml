@@ -4,7 +4,7 @@
     <groupId>org.joget.marketplace</groupId>
     <artifactId>column-template-formatter</artifactId>
     <packaging>bundle</packaging>
-    <version>8.0.0</version>
+    <version>8.0.1</version>
     <name>column-template-formatter</name>
     <url>http://www.joget.org</url>
     <build>
