@@ -737,11 +737,7 @@
                         );
                     }
 
-                    var templateInner = this.innerHTML.trim();
-                    if (!templateInner || !this.textContent.trim()) {
-                        templateInner = '{{value}}';
-                    }
-                    const templateCode = `<span style="${this.getAttribute('style')}">${templateInner}</span>`;
+                    const templateCode = `<span style="${this.getAttribute('style')}">${this.innerHTML}</span>`;
                     self.setEditorValue(templateCode);
                 }
 

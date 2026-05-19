@@ -26,7 +26,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
-import org.jsoup.select.Elements;
 
 public class ColumnTemplateFormatter extends DataListColumnFormatDefault implements PluginWebSupport {
 
@@ -142,78 +141,27 @@ public class ColumnTemplateFormatter extends DataListColumnFormatDefault impleme
         return getPropertyString("templateEditor");
     }
 
-    private static final String[] VALUE_PLACEHOLDERS = {
-        "{{value}}", "{{columnValue}}", "{{VALUE}}", "%%VALUE%%", "COLUMN_VALUE"
-    };
-
     public static String replaceLastTextContent(String html, String replacement) {
-        if (html == null) {
+        if (html == null || replacement == null) {
             return html;
-        }
-        if (replacement == null) {
-            replacement = "";
         }
 
         Document doc = Jsoup.parseBodyFragment(html);
         Element body = doc.body();
-        String bodyHtml = body.html();
-
-        for (String placeholder : VALUE_PLACEHOLDERS) {
-            if (bodyHtml.toLowerCase().contains(placeholder.toLowerCase())) {
-                body.html(bodyHtml.replaceAll("(?i)" + java.util.regex.Pattern.quote(placeholder),
-                        java.util.regex.Matcher.quoteReplacement(replacement)));
-                return body.html();
-            }
-        }
 
         TextNode lastTextNode = findLastTextNode(body);
         if (lastTextNode != null) {
             lastTextNode.text(replacement);
-            return body.html();
-        }
-
-        Element target = findInjectionTarget(body);
-        if (target != null) {
-            target.appendText(replacement);
         } else {
-            body.appendText(replacement);
+            Element target = body.select("span, div").last();
+            if (target != null) {
+                target.appendText(replacement);
+            } else {
+                body.appendText(replacement);
+            }
         }
 
         return body.html();
-    }
-
-    private static Element findInjectionTarget(Element body) {
-        Element withDataTemplate = body.select("[data-template]").last();
-        if (withDataTemplate != null) {
-            return withDataTemplate;
-        }
-
-        Elements styledTargets = body.select(".pill-option, .badge");
-        if (!styledTargets.isEmpty()) {
-            return styledTargets.last();
-        }
-
-        Element deepestLeaf = null;
-        int maxDepth = -1;
-        for (Element element : body.getAllElements()) {
-            if (element == body || !element.children().isEmpty()) {
-                continue;
-            }
-            int depth = element.parents().size();
-            if (depth > maxDepth) {
-                maxDepth = depth;
-                deepestLeaf = element;
-            }
-        }
-        if (deepestLeaf != null) {
-            return deepestLeaf;
-        }
-
-        if (!body.children().isEmpty()) {
-            return body.child(body.children().size() - 1);
-        }
-
-        return body;
     }
 
     private static TextNode findLastTextNode(Node node) {
